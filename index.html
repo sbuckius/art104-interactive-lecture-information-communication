@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Session Q&A</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1a2e; --paper: #f5f0e8; --accent: #c84b31; --gold: #e8a838;
+    --soft: #e8e2d5; --muted: #8a8070; --highlight: #fffbe6;
+    --green: #2e7d52; --green-bg: #eaf4ee; --radius: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--paper); color: var(--ink); font-family: 'DM Sans', sans-serif; min-height: 100vh;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%231a1a2e' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  #setup-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:2rem; }
+  .setup-card { background:white; border:2px solid var(--ink); border-radius:var(--radius); padding:3rem; max-width:480px; width:100%; box-shadow:8px 8px 0 var(--ink); animation:slideUp .5s ease; }
+  .setup-card h1 { font-family:'DM Serif Display',serif; font-size:2.4rem; line-height:1.1; margin-bottom:.5rem; }
+  .setup-card h1 em { color:var(--accent); font-style:italic; }
+  .setup-card p { color:var(--muted); margin-bottom:2rem; font-size:.95rem; }
+  .field-group { margin-bottom:1.25rem; }
+  .field-group label { display:block; font-weight:600; font-size:.85rem; letter-spacing:.04em; text-transform:uppercase; margin-bottom:.4rem; }
+  .field-group input { width:100%; padding:.75rem 1rem; border:2px solid var(--soft); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-size:1rem; background:var(--paper); transition:border-color .2s; }
+  .field-group input:focus { outline:none; border-color:var(--ink); }
+  .role-toggle { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1.5rem; }
+  .role-btn { padding:.75rem; border:2px solid var(--soft); border-radius:var(--radius); background:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:500; font-size:.95rem; transition:all .2s; }
+  .role-btn.active { background:var(--ink); color:white; border-color:var(--ink); }
+  .btn-primary { width:100%; padding:.9rem; background:var(--accent); color:white; border:2px solid var(--accent); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-weight:600; font-size:1rem; cursor:pointer; transition:all .15s; }
+  .btn-primary:hover { background:var(--ink); border-color:var(--ink); }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+  #app { display:none; }
+  .app-header { background:var(--ink); color:white; padding:1rem 2rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+  .app-header h2 { font-family:'DM Serif Display',serif; font-size:1.3rem; }
+  .header-meta { display:flex; align-items:center; gap:1rem; font-size:.85rem; }
+  .session-badge { background:rgba(255,255,255,.15); padding:.25rem .75rem; border-radius:99px; font-weight:500; }
+  .user-badge { background:var(--accent); padding:.25rem .75rem; border-radius:99px; font-weight:600; }
+  .app-body { max-width:900px; margin:0 auto; padding:2rem 1.5rem; }
+  .question-header { background:var(--ink); color:white; border-radius:var(--radius) var(--radius) 0 0; padding:1.5rem 2rem; display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+  .q-number { font-family:'DM Serif Display',serif; font-size:1rem; color:var(--gold); margin-bottom:.3rem; }
+  .q-text { font-family:'DM Serif Display',serif; font-size:1.5rem; line-height:1.3; flex:1; }
+  .q-progress { font-size:.85rem; color:rgba(255,255,255,.5); white-space:nowrap; padding-top:.25rem; }
+  .answer-section { background:white; border:2px solid var(--ink); border-top:none; border-radius:0 0 var(--radius) var(--radius); padding:1.5rem 2rem; margin-bottom:1rem; }
+  .my-answer-area { margin-bottom:1.5rem; }
+  .my-answer-area label { font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:.6rem; }
+  .my-answer-area textarea { width:100%; min-height:90px; padding:.75rem 1rem; border:2px solid var(--soft); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-size:.95rem; resize:vertical; transition:border-color .2s; background:var(--paper); }
+  .my-answer-area textarea:focus { outline:none; border-color:var(--ink); }
+  .my-answer-area textarea:disabled { opacity:.6; cursor:not-allowed; }
+  .answer-actions { display:flex; gap:.75rem; flex-wrap:wrap; }
+  .btn-submit { padding:.65rem 1.5rem; background:var(--accent); color:white; border:2px solid var(--accent); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-weight:600; cursor:pointer; transition:all .15s; }
+  .btn-submit:hover { background:var(--ink); border-color:var(--ink); }
+  .btn-submit:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-outline { padding:.65rem 1.25rem; background:none; color:var(--ink); border:2px solid var(--soft); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all .15s; }
+  .btn-outline:hover { border-color:var(--ink); }
+  .divider { border:none; border-top:2px dashed var(--soft); margin:1.25rem 0; }
+  .responses-label { font-weight:600; font-size:.85rem; text-transform:uppercase; letter-spacing:.04em; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+  .response-count { background:var(--ink); color:white; font-size:.75rem; padding:.1rem .5rem; border-radius:99px; }
+  .responses-list { display:flex; flex-direction:column; gap:.75rem; }
+  .response-card { background:var(--paper); border-radius:var(--radius); padding:1rem 1.25rem; border-left:3px solid var(--gold); animation:fadeIn .3s ease; }
+  .response-card.mine { border-left-color:var(--accent); background:var(--highlight); }
+  .response-meta { display:flex; justify-content:space-between; align-items:center; margin-bottom:.4rem; }
+  .response-name { font-weight:600; font-size:.85rem; }
+  .response-name.mine-label { color:var(--accent); }
+  .response-time { font-size:.75rem; color:var(--muted); }
+  .response-text { font-size:.95rem; line-height:1.55; }
+  .no-responses { color:var(--muted); font-style:italic; font-size:.9rem; text-align:center; padding:1rem 0; }
+
+  /* REVEAL */
+  .reveal-card { background:var(--green-bg); border:2px solid var(--green); border-radius:var(--radius); padding:1.5rem 2rem; margin-bottom:2rem; animation:revealPop .5s cubic-bezier(.175,.885,.32,1.275); }
+  .reveal-label { display:flex; align-items:center; gap:.5rem; font-weight:700; font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--green); margin-bottom:.85rem; }
+  .reveal-title { font-family:'DM Serif Display',serif; font-size:1.3rem; margin-bottom:.65rem; color:var(--ink); }
+  .reveal-body { font-size:.95rem; line-height:1.75; color:var(--ink); white-space:pre-wrap; margin-bottom:.75rem; }
+  .reveal-images { display:flex; flex-wrap:wrap; gap:1rem; margin-top:.75rem; }
+  .reveal-img-wrap { flex:1 1 260px; max-width:100%; border-radius:var(--radius); overflow:hidden; border:2px solid var(--soft); background:white; }
+  .reveal-img-wrap img { width:100%; display:block; object-fit:cover; max-height:300px; }
+  .reveal-img-caption { font-size:.78rem; color:var(--muted); padding:.35rem .6rem; background:white; }
+  .reveal-upload-bar { margin-top:1rem; padding-top:1rem; border-top:1.5px dashed rgba(46,125,82,.3); display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+  .reveal-upload-bar input[type=text] { flex:1; min-width:160px; padding:.5rem .75rem; border:1.5px solid var(--soft); border-radius:4px; font-size:.85rem; font-family:'DM Sans',sans-serif; }
+  .reveal-upload-bar input[type=text]:focus { outline:none; border-color:var(--green); }
+  .btn-green { padding:.5rem 1rem; background:var(--green); color:white; border:none; border-radius:4px; cursor:pointer; font-size:.85rem; font-family:'DM Sans',sans-serif; font-weight:500; }
+  .btn-upload-label { padding:.5rem 1rem; background:var(--soft); border-radius:4px; cursor:pointer; font-size:.85rem; font-weight:500; font-family:'DM Sans',sans-serif; }
+
+  /* PREV QUESTIONS */
+  .prev-questions { margin-top:.5rem; }
+  .prev-questions h3 { font-family:'DM Serif Display',serif; font-size:1.2rem; margin-bottom:1rem; color:var(--muted); }
+  .prev-q-card { border:1.5px solid var(--soft); border-radius:var(--radius); margin-bottom:1rem; overflow:hidden; }
+  .prev-q-header { background:var(--soft); padding:.85rem 1.25rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none; }
+  .prev-q-header:hover { background:#ddd8cc; }
+  .prev-q-title { font-weight:600; font-size:.9rem; flex:1; margin-right:1rem; }
+  .prev-q-toggle { font-size:.8rem; color:var(--muted); white-space:nowrap; }
+  .prev-q-body { padding:1.25rem; display:none; }
+  .prev-q-body.open { display:block; }
+
+  /* ADMIN */
+  .admin-panel { background:var(--ink); color:white; border-radius:var(--radius); padding:1.5rem 2rem; margin-bottom:2rem; }
+  .admin-panel h3 { font-family:'DM Serif Display',serif; margin-bottom:1rem; color:var(--gold); }
+  .admin-actions { display:flex; gap:.75rem; flex-wrap:wrap; }
+  .btn-admin { padding:.65rem 1.25rem; background:rgba(255,255,255,.1); color:white; border:1.5px solid rgba(255,255,255,.25); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all .15s; font-size:.9rem; }
+  .btn-admin:hover { background:rgba(255,255,255,.2); }
+  .btn-admin.danger { border-color:var(--accent); color:#ff8a75; }
+  .btn-admin.danger:hover { background:var(--accent); color:white; }
+  .btn-admin.advance { background:var(--gold); color:var(--ink); border-color:var(--gold); font-weight:700; }
+  .btn-admin.advance:hover { background:#f0b840; }
+
+  /* TOAST */
+  #toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(4rem); background:var(--ink); color:white; padding:.75rem 1.5rem; border-radius:99px; font-size:.9rem; font-weight:500; transition:transform .3s ease; z-index:9999; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,.3); }
+  #toast.show { transform:translateX(-50%) translateY(0); }
+
+  /* MODALS */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:white; border:2px solid var(--ink); border-radius:var(--radius); padding:2rem; max-width:440px; width:90%; box-shadow:8px 8px 0 var(--ink); animation:slideUp .2s ease; }
+  .modal h3 { font-family:'DM Serif Display',serif; font-size:1.4rem; margin-bottom:.5rem; }
+  .modal p { color:var(--muted); margin-bottom:1.25rem; font-size:.9rem; }
+  .modal input { width:100%; padding:.75rem 1rem; border:2px solid var(--soft); border-radius:var(--radius); font-family:'DM Sans',sans-serif; margin-bottom:1rem; font-size:1rem; }
+  .modal input:focus { outline:none; border-color:var(--ink); }
+  .modal-actions { display:flex; gap:.75rem; justify-content:flex-end; }
+  .btn-cancel { padding:.65rem 1.25rem; background:none; border:2px solid var(--soft); border-radius:var(--radius); cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .btn-confirm { padding:.65rem 1.25rem; background:var(--accent); color:white; border:2px solid var(--accent); border-radius:var(--radius); cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:600; }
+  .config-notice { background:#fff3cd; border:2px solid #e8a838; border-radius:var(--radius); padding:1.1rem; margin:.75rem 0; font-size:.85rem; }
+  .config-notice strong { display:block; margin-bottom:.35rem; }
+  .config-notice code { background:rgba(0,0,0,.08); padding:.1rem .35rem; border-radius:3px; font-size:.8rem; }
+
+  @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes revealPop { from { opacity:0; transform:scale(.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+
+  @media (max-width:600px) {
+    .setup-card { padding:2rem 1.5rem; }
+    .app-header { flex-direction:column; gap:.5rem; align-items:flex-start; }
+    .question-header { flex-direction:column; }
+    .answer-section, .reveal-card { padding:1.25rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Firebase config is hardcoded below — no setup modal needed -->
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" style="display:none">
+  <div class="setup-card">
+    <h1>Live<br><em>Session</em><br>Q&A</h1>
+    <p>Real-time classroom tool. Everyone sees all answers, plus instructor reveals after each question advances.</p>
+    <div class="field-group">
+      <label>Session ID</label>
+      <input type="text" id="session-id" placeholder="e.g. biology-101" value="session-1">
+    </div>
+    <div class="field-group">
+      <label>Your Name</label>
+      <input type="text" id="user-name" placeholder="e.g. Alex Johnson">
+    </div>
+    <div style="margin-bottom:1.25rem">
+      <label style="font-weight:600;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase;display:block;margin-bottom:.5rem">Join as</label>
+      <div class="role-toggle">
+        <button class="role-btn active" onclick="selectRole('student',this)">Student</button>
+        <button class="role-btn" onclick="selectRole('admin',this)">Admin</button>
+      </div>
+    </div>
+    <div id="admin-code-field" class="field-group" style="display:none">
+      <label>Admin Code</label>
+      <input type="password" id="admin-code-input" placeholder="Enter admin code">
+    </div>
+    <button class="btn-primary" id="join-btn" onclick="joinSession()">Join Session →</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="app-header">
+    <h2>📋 Live Session Q&A</h2>
+    <div class="header-meta">
+      <span class="session-badge" id="header-session"></span>
+      <span class="user-badge" id="header-user"></span>
+    </div>
+  </div>
+  <div class="app-body">
+    <div class="admin-panel" id="admin-panel" style="display:none">
+      <h3>Admin Controls</h3>
+      <div class="admin-actions">
+        <button class="btn-admin advance" onclick="advanceQuestion()">▶ Next Question</button>
+        <button class="btn-admin" onclick="exportAllPDF()">⬇ Export All (PDF)</button>
+        <button class="btn-admin" onclick="exportByStudentPDF()">⬇ By Student (PDF)</button>
+        <button class="btn-admin danger" onclick="confirmReset()">✕ Reset All</button>
+      </div>
+    </div>
+    <div id="reveal-zone"></div>
+    <div id="main-question-block"></div>
+    <div id="prev-questions-block"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- CONFIRM MODAL -->
+<div id="confirm-modal" class="modal-overlay">
+  <div class="modal">
+    <h3 id="confirm-title">Confirm Action</h3>
+    <p id="confirm-msg">Are you sure?</p>
+    <input type="password" id="confirm-code" placeholder="Enter admin code to confirm">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-confirm" id="confirm-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script type="module">
+// ════════════════════════════════════════════════════
+//  QUESTIONS CONFIG
+//  Each entry:
+//    text    : string — the question shown to students
+//    reveal  : null   — no reveal for this question
+//    reveal  : {
+//      title  : string (optional headline)
+//      body   : string (instructor notes, supports \n)
+//      images : [ { src: "URL or leave ''", caption: "optional" }, ... ]
+//    }
+//
+//  ✏️  Edit questions and reveals freely below.
+//  ➕  Add more by copying the object pattern.
+// ════════════════════════════════════════════════════
+const QUESTIONS = [
+  // ── 1 ───────────────────────────────────────────────────────────
+  {
+    text: "List all of the instances in a day when you come into contact with \"information\".",
+    reveal: null
+  },
+  // ── 2 ───────────────────────────────────────────────────────────
+  {
+    text: "What \"technology\" is the interface to this information in your interactions with \"information\"? List some of them.",
+    reveal: null
+  },
+  // ── 3 ───────────────────────────────────────────────────────────
+  {
+    text: "What is \"truth\" when it comes to information in today's digital age?\nWhat is NOT \"truth\"?",
+    reveal: null
+  },
+  // ── 4 ───────────────────────────────────────────────────────────
+  {
+    text: "List all of the instances in a day when you come into contact with \"misinformation\" or \"fake news\" or \"disinformation\".",
+    reveal: null
+  },
+  // ── 5 ───────────────────────────────────────────────────────────
+  {
+    text: "What technology is the disinformation found on?\nHow do you know if it is true or not?",
+    reveal: null
+  },
+  // ── 6 ───────────────────────────────────────────────────────────
+  {
+    text: "How can you make an artwork that creates misinformation?",
+    reveal: null
+  },
+  // ── 7 ───────────────────────────────────────────────────────────
+  {
+    text: "How can you make an artwork that changes misinformation to truth?",
+    reveal: null
+  },
+  // ── 8 ───────────────────────────────────────────────────────────
+  {
+    text: "How do you know if the information that you encounter is \"true\", \"reliable\", or \"accurate\"?",
+    reveal: null
+  },
+  // ── 9 ───────────────────────────────────────────────────────────
+  {
+    text: "Imagine communication technology in 200 years. What does it look like? What does it do? How does it work?",
+    reveal: null
+  },
+  // ── 10 ──────────────────────────────────────────────────────────
+  {
+    text: "Imagine that you cannot use technology for 24 hours. How would you communicate?\n\nList all of the instances of communication that you engaged in today.",
+    reveal: null
+  },
+  // ── 11 ──────────────────────────────────────────────────────────
+  {
+    text: "List all of the instances of miscommunication that you engaged in today. What technology did you use?",
+    reveal: null
+  },
+  // ── 12 ──────────────────────────────────────────────────────────
+  {
+    text: "List all of the things that you can think of that make communication difficult today (Communication Barriers). What technologies are involved with the communication barriers that you listed?",
+    reveal: null
+  },
+  // ── 13 ──────────────────────────────────────────────────────────
+  {
+    text: "How can you make a digital artwork that illuminates issues with communication technology today? The artwork can grapple with \"What does it mean to communicate in today's digital world?\"",
+    reveal: null
+  },
+  // ✏️ ADD MORE QUESTIONS HERE — copy and paste an object from above
+];
+
+const ADMIN_CODE = "admin123";
+
+// Per-question extra images added live by admin (URL or uploaded file)
+// Structure: { [questionIndex]: [ {src, caption}, ... ] }
+const runtimeImages = {};
+
+// ════════════ STATE ════════════
+let db, sessionRef;
+let sessionId, userName, isAdmin = false;
+let currentQuestionIndex = 0;
+let allAnswers = {};
+
+// ════════════ FIREBASE BOOTSTRAP ════════════
+(async () => {
+  const cfg = {
+    apiKey: "AIzaSyAnr3fhcSWnNJ21U1jLNhmGjBn2ETgs3mA",
+    authDomain: "communicationinformationlectur.firebaseapp.com",
+    projectId: "communicationinformationlectur",
+    storageBucket: "communicationinformationlectur.firebasestorage.app",
+    messagingSenderId: "181372817612",
+    appId: "1:181372817612:web:94799612c96d254acab269",
+    measurementId: "G-2K11WZMCXK"
+  };
+  try {
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
+    const fs = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    initializeApp(cfg);
+    db = fs.getFirestore();
+    window._fs = fs;
+    document.getElementById('setup-screen').style.display = 'flex';
+  } catch(err) {
+    alert('Firebase failed to load: ' + err.message);
+    console.error(err);
+  }
+})();
+
+// ════════════ ROLE SELECTION ════════════
+let selectedRole = 'student';
+window.selectRole = (role, btn) => {
+  selectedRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('admin-code-field').style.display = role === 'admin' ? 'block' : 'none';
+};
+
+// ════════════ JOIN SESSION ════════════
+window.joinSession = async () => {
+  const sId = document.getElementById('session-id').value.trim();
+  const uName = document.getElementById('user-name').value.trim();
+  if (!sId || !uName) return showToast('Please fill in all fields');
+  if (selectedRole === 'admin') {
+    if (document.getElementById('admin-code-input').value !== ADMIN_CODE) return showToast('❌ Incorrect admin code');
+    isAdmin = true;
+  }
+  const btn = document.getElementById('join-btn');
+  btn.disabled = true; btn.textContent = 'Joining…';
+  sessionId = sId; userName = uName;
+  const { doc, setDoc, getDoc, serverTimestamp } = window._fs;
+  sessionRef = doc(db, 'sessions', sessionId);
+  const snap = await getDoc(sessionRef);
+  if (!snap.exists()) await setDoc(sessionRef, { currentQuestion: 0, createdAt: serverTimestamp() });
+  await setDoc(doc(db, 'sessions', sessionId, 'users', userName), { name: userName, joinedAt: serverTimestamp() }, { merge: true });
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('header-session').textContent = '📌 ' + sessionId;
+  document.getElementById('header-user').textContent = isAdmin ? '👑 ' + userName : '🎓 ' + userName;
+  if (isAdmin) document.getElementById('admin-panel').style.display = 'block';
+  startListening();
+};
+
+// ════════════ REAL-TIME LISTENERS ════════════
+let prevIdx = -1;
+function startListening() {
+  const { onSnapshot, collection } = window._fs;
+  onSnapshot(sessionRef, snap => {
+    if (!snap.exists()) return;
+    const newIdx = snap.data().currentQuestion || 0;
+    const didAdvance = newIdx > prevIdx && prevIdx >= 0;
+    prevIdx = newIdx;
+    currentQuestionIndex = newIdx;
+    renderCurrentQuestion();
+    renderPreviousQuestions();
+    if (didAdvance) renderRevealZone(currentQuestionIndex - 1);
+    else if (prevIdx === 0) document.getElementById('reveal-zone').innerHTML = '';
+  });
+  onSnapshot(collection(db, 'sessions', sessionId, 'answers'), snap => {
+    allAnswers = {};
+    snap.forEach(d => { allAnswers[d.id] = d.data(); });
+    renderCurrentQuestion();
+    renderPreviousQuestions();
+  });
+}
+
+// ════════════ RENDER: CURRENT QUESTION ════════════
+function renderCurrentQuestion() {
+  const block = document.getElementById('main-question-block');
+  if (currentQuestionIndex >= QUESTIONS.length) {
+    block.innerHTML = `<div style="text-align:center;padding:4rem 2rem">
+      <h2 style="font-family:'DM Serif Display',serif;font-size:2rem;margin-bottom:.75rem">🎉 Session complete!</h2>
+      <p style="color:var(--muted)">Thank you for participating.</p></div>`;
+    return;
+  }
+  const qObj = QUESTIONS[currentQuestionIndex];
+  const myKey = `q${currentQuestionIndex}_${userName}`;
+  const myAnswer = allAnswers[myKey];
+  const responses = getResponsesForQ(currentQuestionIndex);
+  block.innerHTML = `
+    <div class="question-header">
+      <div>
+        <div class="q-number">Question ${currentQuestionIndex + 1}</div>
+        <div class="q-text">${esc(qObj.text)}</div>
+      </div>
+      <div class="q-progress">${currentQuestionIndex + 1} / ${QUESTIONS.length}</div>
+    </div>
+    <div class="answer-section">
+      <div class="my-answer-area">
+        <label>Your Answer</label>
+        <textarea id="my-answer-ta" placeholder="Type your answer here…" ${myAnswer ? 'disabled' : ''}>${myAnswer ? esc(myAnswer.text) : ''}</textarea>
+      </div>
+      <div class="answer-actions">
+        <button class="btn-submit" onclick="submitAnswer()" ${myAnswer ? 'disabled' : ''}>${myAnswer ? '✓ Submitted' : 'Submit Answer'}</button>
+        ${myAnswer ? `<button class="btn-outline" onclick="editAnswer()">Edit</button>` : ''}
+      </div>
+      <hr class="divider">
+      <div class="responses-label">Class Responses <span class="response-count">${responses.length}</span></div>
+      <div class="responses-list">
+        ${responses.length === 0 ? '<div class="no-responses">No responses yet — be the first!</div>' : responses.map(responseCard).join('')}
+      </div>
+    </div>`;
+}
+
+// ════════════ RENDER: REVEAL ZONE ════════════
+function renderRevealZone(qIndex) {
+  const zone = document.getElementById('reveal-zone');
+  const html = buildRevealHtml(qIndex, true);
+  zone.innerHTML = html || '';
+  if (html) zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function buildRevealHtml(qIndex, withUpload) {
+  const qObj = QUESTIONS[qIndex];
+  if (!qObj || !qObj.reveal) return '';
+  const r = qObj.reveal;
+  const extra = runtimeImages[qIndex] || [];
+  const allImgs = [...(r.images || []), ...extra];
+
+  const imgsHtml = allImgs.length ? `
+    <div class="reveal-images">
+      ${allImgs.map(img => `
+        <div class="reveal-img-wrap">
+          <img src="${esc(img.src)}" alt="${esc(img.caption || 'Image')}" onerror="this.parentElement.style.display='none'">
+          ${img.caption ? `<div class="reveal-img-caption">${esc(img.caption)}</div>` : ''}
+        </div>`).join('')}
+    </div>` : '';
+
+  const uploadHtml = (withUpload && isAdmin) ? `
+    <div class="reveal-upload-bar">
+      <span style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--green);white-space:nowrap">Add image:</span>
+      <input type="text" id="img-url-${qIndex}" placeholder="Image URL…">
+      <input type="text" id="img-cap-${qIndex}" placeholder="Caption (optional)">
+      <button class="btn-green" onclick="addImgURL(${qIndex})">Add URL</button>
+      <label class="btn-upload-label">Upload
+        <input type="file" accept="image/*" style="display:none" onchange="addImgFile(event,${qIndex})">
+      </label>
+    </div>` : '';
+
+  return `
+    <div class="reveal-card">
+      <div class="reveal-label"><span>💡</span> Instructor Reveal</div>
+      ${r.title ? `<div class="reveal-title">${esc(r.title)}</div>` : ''}
+      ${r.body ? `<div class="reveal-body">${esc(r.body)}</div>` : ''}
+      ${imgsHtml}
+      ${uploadHtml}
+    </div>`;
+}
+
+// ════════════ RENDER: PREVIOUS QUESTIONS ════════════
+function renderPreviousQuestions() {
+  const block = document.getElementById('prev-questions-block');
+  if (currentQuestionIndex === 0) { block.innerHTML = ''; return; }
+  let html = '<div class="prev-questions"><h3>Previous Questions</h3>';
+  for (let i = currentQuestionIndex - 1; i >= 0; i--) {
+    const responses = getResponsesForQ(i);
+    const qText = QUESTIONS[i].text;
+    const hasReveal = !!QUESTIONS[i].reveal;
+    html += `
+      <div class="prev-q-card">
+        <div class="prev-q-header" onclick="togglePrev(${i})">
+          <span class="prev-q-title">Q${i+1}: ${esc(qText.length > 72 ? qText.slice(0,72)+'…' : qText)}</span>
+          <span class="prev-q-toggle" id="ptog-${i}">▼ ${responses.length} response${responses.length!==1?'s':''}${hasReveal ? ' · 💡' : ''}</span>
+        </div>
+        <div class="prev-q-body" id="pbody-${i}">
+          ${buildRevealHtml(i, true)}
+          <div style="margin-top:${hasReveal?'1rem':'0'}">
+            ${responses.length === 0 ? '<div class="no-responses">No responses recorded.</div>' : responses.map(responseCard).join('')}
+          </div>
+        </div>
+      </div>`;
+  }
+  html += '</div>';
+  block.innerHTML = html;
+}
+
+window.togglePrev = (i) => {
+  const body = document.getElementById(`pbody-${i}`);
+  const tog = document.getElementById(`ptog-${i}`);
+  body.classList.toggle('open');
+  const open = body.classList.contains('open');
+  const cnt = getResponsesForQ(i).length;
+  const hr = !!QUESTIONS[i].reveal;
+  tog.textContent = `${open?'▲':'▼'} ${cnt} response${cnt!==1?'s':''}${hr?' · 💡':''}`;
+};
+
+function responseCard(r) {
+  const mine = r.user === userName;
+  return `<div class="response-card ${mine?'mine':''}">
+    <div class="response-meta">
+      <span class="response-name ${mine?'mine-label':''}">${mine ? '★ You' : esc(r.user)}</span>
+      <span class="response-time">${r.timestamp ? fmtTime(r.timestamp) : ''}</span>
+    </div>
+    <div class="response-text">${esc(r.text)}</div>
+  </div>`;
+}
+
+// ════════════ SUBMIT / EDIT ════════════
+window.submitAnswer = async () => {
+  const ta = document.getElementById('my-answer-ta');
+  const text = ta?.value.trim();
+  if (!text) return showToast('Please write an answer first');
+  const { doc, setDoc, serverTimestamp } = window._fs;
+  await setDoc(doc(db, 'sessions', sessionId, 'answers', `q${currentQuestionIndex}_${userName}`), {
+    questionIndex: currentQuestionIndex, user: userName, text, timestamp: serverTimestamp()
+  });
+  showToast('✅ Answer submitted!');
+};
+
+window.editAnswer = async () => {
+  const { doc, deleteDoc } = window._fs;
+  await deleteDoc(doc(db, 'sessions', sessionId, 'answers', `q${currentQuestionIndex}_${userName}`));
+  showToast('Answer cleared — you can resubmit');
+};
+
+// ════════════ IMAGE MANAGEMENT ════════════
+window.addImgURL = (qi) => {
+  const url = document.getElementById(`img-url-${qi}`)?.value.trim();
+  const cap = document.getElementById(`img-cap-${qi}`)?.value.trim() || '';
+  if (!url) return showToast('Enter an image URL first');
+  if (!runtimeImages[qi]) runtimeImages[qi] = [];
+  runtimeImages[qi].push({ src: url, caption: cap });
+  refreshRevealAreas(qi);
+  showToast('🖼 Image added!');
+};
+
+window.addImgFile = (event, qi) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (!runtimeImages[qi]) runtimeImages[qi] = [];
+    runtimeImages[qi].push({ src: e.target.result, caption: file.name.replace(/\.[^.]+$/, '') });
+    refreshRevealAreas(qi);
+    showToast('🖼 Image uploaded!');
+  };
+  reader.readAsDataURL(file);
+};
+
+function refreshRevealAreas(qi) {
+  // Refresh reveal zone (if it's the last completed question)
+  if (qi === currentQuestionIndex - 1) {
+    renderRevealZone(qi);
+  }
+  // Refresh prev question panel if open
+  const pbody = document.getElementById(`pbody-${qi}`);
+  if (pbody && pbody.classList.contains('open')) {
+    const r = getResponsesForQ(qi);
+    pbody.innerHTML = buildRevealHtml(qi, true) +
+      `<div style="margin-top:${QUESTIONS[qi].reveal?'1rem':'0'}">
+        ${r.length === 0 ? '<div class="no-responses">No responses recorded.</div>' : r.map(responseCard).join('')}
+      </div>`;
+  }
+}
+
+// ════════════ ADMIN ACTIONS ════════════
+window.advanceQuestion = async () => {
+  const next = currentQuestionIndex + 1;
+  if (next > QUESTIONS.length) return showToast('No more questions!');
+  const { updateDoc } = window._fs;
+  await updateDoc(sessionRef, { currentQuestion: next });
+  showToast(next >= QUESTIONS.length ? '🎉 Session complete!' : `▶ Advanced to Q${next + 1}`);
+};
+
+window.confirmReset = () => {
+  document.getElementById('confirm-title').textContent = 'Reset All Data';
+  document.getElementById('confirm-msg').textContent = 'This deletes ALL answers and restarts from Question 1.';
+  document.getElementById('confirm-code').value = '';
+  document.getElementById('confirm-modal').classList.add('open');
+  document.getElementById('confirm-btn').onclick = async () => {
+    if (document.getElementById('confirm-code').value !== ADMIN_CODE) return showToast('❌ Wrong code');
+    await resetAll(); closeModal();
+  };
+};
+
+async function resetAll() {
+  const { collection, getDocs, deleteDoc, updateDoc, doc } = window._fs;
+  const snap = await getDocs(collection(db, 'sessions', sessionId, 'answers'));
+  await Promise.all(snap.docs.map(d => deleteDoc(doc(db, 'sessions', sessionId, 'answers', d.id))));
+  await updateDoc(sessionRef, { currentQuestion: 0 });
+  document.getElementById('reveal-zone').innerHTML = '';
+  showToast('🔄 Session reset!');
+}
+
+// ════════════ PDF HELPERS ════════════
+function pdfHeader(jdoc, title, sub) {
+  const W = jdoc.internal.pageSize.getWidth();
+  jdoc.setFillColor(26, 26, 46);
+  jdoc.rect(0, 0, W, 68, 'F');
+  jdoc.setFont('helvetica', 'bold');
+  jdoc.setFontSize(18);
+  jdoc.setTextColor(255, 255, 255);
+  jdoc.text(title, 40, 36);
+  jdoc.setFontSize(9);
+  jdoc.setFont('helvetica', 'normal');
+  jdoc.setTextColor(190, 190, 205);
+  jdoc.text(sub, 40, 54);
+  jdoc.setTextColor(26, 26, 46);
+  return 88;
+}
+
+function pdfText(jdoc, text, x, y, maxW, size, style, rgb) {
+  jdoc.setFontSize(size); jdoc.setFont('helvetica', style); jdoc.setTextColor(...rgb);
+  const pageH = jdoc.internal.pageSize.getHeight();
+  const lines = jdoc.splitTextToSize(String(text || ''), maxW);
+  lines.forEach(ln => {
+    if (y > pageH - 55) { jdoc.addPage(); y = 48; }
+    jdoc.text(ln, x, y); y += size * 1.5;
+  });
+  return y;
+}
+
+// ════════════ EXPORT ALL PDF ════════════
+window.exportAllPDF = () => {
+  const { jsPDF } = window.jspdf;
+  const jdoc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  const W = jdoc.internal.pageSize.getWidth();
+  const M = 42;
+  let y = pdfHeader(jdoc, 'Session Export — All Responses', `Session: ${sessionId}   ·   ${new Date().toLocaleString()}`);
+
+  for (let qi = 0; qi < QUESTIONS.length; qi++) {
+    const responses = getResponsesForQ(qi);
+    if (y > jdoc.internal.pageSize.getHeight() - 90) { jdoc.addPage(); y = 48; }
+    // Q heading
+    jdoc.setFillColor(240, 236, 228);
+    jdoc.rect(M, y - 13, W - M * 2, 21, 'F');
+    y = pdfText(jdoc, `Q${qi+1}: ${QUESTIONS[qi].text}`, M + 6, y, W - M * 2 - 12, 10.5, 'bold', [26,26,46]);
+    y += 4;
+    if (responses.length === 0) {
+      y = pdfText(jdoc, 'No responses.', M + 10, y, W - M*2-20, 9, 'italic', [138,128,112]);
+    } else {
+      responses.forEach(r => {
+        y = pdfText(jdoc, r.user + ':', M + 10, y, W - M*2-20, 9, 'bold', [200,75,49]);
+        y = pdfText(jdoc, r.text, M + 22, y, W - M*2-32, 9.5, 'normal', [50,50,60]);
+        y += 2;
+      });
+    }
+    y += 10;
+  }
+  jdoc.save(`session-${sessionId}-all.pdf`);
+  showToast('⬇ All responses PDF downloaded');
+};
+
+// ════════════ EXPORT BY STUDENT PDF ════════════
+window.exportByStudentPDF = () => {
+  const byUser = {};
+  Object.values(allAnswers).sort((a,b) => a.questionIndex - b.questionIndex).forEach(r => {
+    if (!byUser[r.user]) byUser[r.user] = [];
+    byUser[r.user].push(r);
+  });
+  if (!Object.keys(byUser).length) return showToast('No answers to export yet');
+  const { jsPDF } = window.jspdf;
+  const jdoc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  const W = jdoc.internal.pageSize.getWidth(); const M = 42;
+  let first = true;
+  Object.entries(byUser).forEach(([user, answers]) => {
+    if (!first) jdoc.addPage(); first = false;
+    let y = pdfHeader(jdoc, `Student: ${user}`, `Session: ${sessionId}   ·   ${new Date().toLocaleString()}`);
+    answers.forEach(r => {
+      if (y > jdoc.internal.pageSize.getHeight() - 90) { jdoc.addPage(); y = 48; }
+      const qText = QUESTIONS[r.questionIndex]?.text || `Question ${r.questionIndex + 1}`;
+      jdoc.setFillColor(240, 236, 228);
+      jdoc.rect(M, y - 13, W - M * 2, 21, 'F');
+      y = pdfText(jdoc, `Q${r.questionIndex+1}: ${qText}`, M + 6, y, W - M*2-12, 10, 'bold', [26,26,46]);
+      y += 3;
+      y = pdfText(jdoc, r.text, M + 10, y, W - M*2-20, 10, 'normal', [50,50,60]);
+      y += 12;
+    });
+  });
+  jdoc.save(`session-${sessionId}-by-student.pdf`);
+  showToast('⬇ Per-student PDF downloaded');
+};
+
+// ════════════ UTILITIES ════════════
+function getResponsesForQ(idx) {
+  return Object.values(allAnswers)
+    .filter(a => a.questionIndex === idx)
+    .sort((a,b) => (a.timestamp?.seconds||0) - (b.timestamp?.seconds||0));
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts.seconds * 1000);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _toastT;
+window.showToast = (msg) => {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastT); _toastT = setTimeout(() => t.classList.remove('show'), 3000);
+};
+
+window.closeModal = () => document.getElementById('confirm-modal').classList.remove('open');
+</script>
+</body>
+</html>
