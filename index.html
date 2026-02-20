@@ -82,11 +82,7 @@
   .q-image-wrap:first-of-type { margin-top:.75rem; }
   .q-image-wrap + .q-image-wrap { margin-top:.6rem; }
   .q-image-wrap img { width:100%; display:block; max-height:520px; object-fit:contain; background:#f0f0ec; }
-  .reveal-upload-bar { margin-top:1rem; padding-top:1rem; border-top:1.5px dashed rgba(46,125,82,.3); display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
-  .reveal-upload-bar input[type=text] { flex:1; min-width:160px; padding:.5rem .75rem; border:1.5px solid var(--soft); border-radius:4px; font-size:.85rem; font-family:'DM Sans',sans-serif; }
-  .reveal-upload-bar input[type=text]:focus { outline:none; border-color:var(--green); }
-  .btn-green { padding:.5rem 1rem; background:var(--green); color:white; border:none; border-radius:4px; cursor:pointer; font-size:.85rem; font-family:'DM Sans',sans-serif; font-weight:500; }
-  .btn-upload-label { padding:.5rem 1rem; background:var(--soft); border-radius:4px; cursor:pointer; font-size:.85rem; font-weight:500; font-family:'DM Sans',sans-serif; }
+
 
   /* PREV QUESTIONS */
   .prev-questions { margin-top:.5rem; }
@@ -324,8 +320,7 @@ const QUESTIONS = [
 
 const ADMIN_CODE = "admin123";
 
-// Per-question extra images added live by admin (URL or uploaded file)
-// Structure: { [questionIndex]: [ {src, caption}, ... ] }
+// Per-question extra images from reveal config only (no runtime uploads)
 const runtimeImages = {};
 
 // ════════════ STATE ════════════
@@ -504,17 +499,6 @@ function buildRevealHtml(qIndex, withUpload) {
         </div>`).join('')}
     </div>` : '';
 
-  const uploadHtml = (withUpload && isAdmin) ? `
-    <div class="reveal-upload-bar">
-      <span style="font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--green);white-space:nowrap">Add image:</span>
-      <input type="text" id="img-url-${qIndex}" placeholder="Image URL…">
-      <input type="text" id="img-cap-${qIndex}" placeholder="Caption (optional)">
-      <button class="btn-green" onclick="addImgURL(${qIndex})">Add URL</button>
-      <label class="btn-upload-label">Upload
-        <input type="file" accept="image/*" style="display:none" onchange="addImgFile(event,${qIndex})">
-      </label>
-    </div>` : '';
-
   const hasRevealText = r && (r.title || r.body);
   return `
     <div class="reveal-card">
@@ -523,7 +507,6 @@ function buildRevealHtml(qIndex, withUpload) {
       ${r?.body ? `<div class="reveal-body">${esc(r.body)}</div>` : ''}
       ${primaryImgsHtml}
       ${extraImgsHtml}
-      ${uploadHtml}
     </div>`;
 }
 
@@ -626,44 +609,7 @@ window.submitCatchup = async (qi) => {
 };
 
 // ════════════ IMAGE MANAGEMENT ════════════
-window.addImgURL = (qi) => {
-  const url = document.getElementById(`img-url-${qi}`)?.value.trim();
-  const cap = document.getElementById(`img-cap-${qi}`)?.value.trim() || '';
-  if (!url) return showToast('Enter an image URL first');
-  if (!runtimeImages[qi]) runtimeImages[qi] = [];
-  runtimeImages[qi].push({ src: url, caption: cap });
-  refreshRevealAreas(qi);
-  showToast('🖼 Image added!');
-};
-
-window.addImgFile = (event, qi) => {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    if (!runtimeImages[qi]) runtimeImages[qi] = [];
-    runtimeImages[qi].push({ src: e.target.result, caption: file.name.replace(/\.[^.]+$/, '') });
-    refreshRevealAreas(qi);
-    showToast('🖼 Image uploaded!');
-  };
-  reader.readAsDataURL(file);
-};
-
-function refreshRevealAreas(qi) {
-  // Refresh reveal zone (if it's the last completed question)
-  if (qi === currentQuestionIndex - 1) {
-    renderRevealZone(qi);
-  }
-  // Refresh prev question panel if open
-  const pbody = document.getElementById(`pbody-${qi}`);
-  if (pbody && pbody.classList.contains('open')) {
-    const r = getResponsesForQ(qi);
-    pbody.innerHTML = buildRevealHtml(qi, true) +
-      `<div style="margin-top:${QUESTIONS[qi].reveal?'1rem':'0'}">
-        ${r.length === 0 ? '<div class="no-responses">No responses recorded.</div>' : r.map(responseCard).join('')}
-      </div>`;
-  }
-}
+// (Runtime image upload removed — images are pre-placed in the images/ folder)
 
 // ════════════ ADMIN ACTIONS ════════════
 window.advanceQuestion = async () => {
