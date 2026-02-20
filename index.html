@@ -94,7 +94,7 @@
   .prev-q-body.open { display:block; }
 
   /* ADMIN */
-  .admin-panel { background:var(--ink); color:white; border-radius:var(--radius); padding:1.5rem 2rem; margin-bottom:2rem; }
+  .admin-panel { background:var(--ink); color:white; border-radius:var(--radius); padding:1.5rem 2rem; margin-bottom:1rem; }
   .admin-panel h3 { font-family:'DM Serif Display',serif; margin-bottom:1rem; color:var(--gold); }
   .admin-actions { display:flex; gap:.75rem; flex-wrap:wrap; }
   .btn-admin { padding:.65rem 1.25rem; background:rgba(255,255,255,.1); color:white; border:1.5px solid rgba(255,255,255,.25); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-weight:500; cursor:pointer; transition:all .15s; font-size:.9rem; }
@@ -103,6 +103,13 @@
   .btn-admin.danger:hover { background:var(--accent); color:white; }
   .btn-admin.advance { background:var(--gold); color:var(--ink); border-color:var(--gold); font-weight:700; }
   .btn-admin.advance:hover { background:#f0b840; }
+
+  /* STUDENT EXPORT PANEL */
+  .student-panel { background:white; border:2px solid var(--soft); border-radius:var(--radius); padding:1rem 1.5rem; margin-bottom:2rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.75rem; }
+  .student-panel-label { font-size:.82rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .student-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
+  .btn-student-export { padding:.55rem 1.1rem; background:var(--paper); color:var(--ink); border:1.5px solid var(--soft); border-radius:var(--radius); font-family:'DM Sans',sans-serif; font-weight:500; font-size:.85rem; cursor:pointer; transition:all .15s; }
+  .btn-student-export:hover { background:var(--soft); border-color:var(--ink); }
 
   /* TOAST */
   #toast { position:fixed; bottom:2rem; left:50%; transform:translateX(-50%) translateY(4rem); background:var(--ink); color:white; padding:.75rem 1.5rem; border-radius:99px; font-size:.9rem; font-weight:500; transition:transform .3s ease; z-index:9999; pointer-events:none; box-shadow:0 4px 20px rgba(0,0,0,.3); }
@@ -184,6 +191,14 @@
         <button class="btn-admin" onclick="exportAllPDF()">⬇ Export All (PDF)</button>
         <button class="btn-admin" onclick="exportByStudentPDF()">⬇ By Student (PDF)</button>
         <button class="btn-admin danger" onclick="confirmReset()">✕ Reset All</button>
+      </div>
+    </div>
+    <!-- Student export panel — visible to all users -->
+    <div class="student-panel" id="student-panel" style="display:none">
+      <span class="student-panel-label">⬇ Export Your Answers</span>
+      <div class="student-actions">
+        <button class="btn-student-export" onclick="exportMyAnswersPDF()">My Answers (PDF)</button>
+        <button class="btn-student-export" onclick="exportClassAnswersPDF()">All Class Answers (PDF)</button>
       </div>
     </div>
     <div id="reveal-zone"></div>
@@ -360,6 +375,7 @@ window.joinSession = async () => {
   document.getElementById('header-session').textContent = '📌 ' + sessionId;
   document.getElementById('header-user').textContent = isAdmin ? '👑 ' + userName : '🎓 ' + userName;
   if (isAdmin) document.getElementById('admin-panel').style.display = 'block';
+  document.getElementById('student-panel').style.display = 'flex';
   startListening();
 };
 
@@ -691,6 +707,56 @@ window.exportByStudentPDF = () => {
   });
   jdoc.save(`session-${sessionId}-by-student.pdf`);
   showToast('⬇ Per-student PDF downloaded');
+};
+
+// ════════════ STUDENT: EXPORT MY ANSWERS ════════════
+window.exportMyAnswersPDF = () => {
+  const myAnswers = Object.values(allAnswers)
+    .filter(r => r.user === userName)
+    .sort((a,b) => a.questionIndex - b.questionIndex);
+  if (!myAnswers.length) return showToast('You haven\'t submitted any answers yet');
+  const { jsPDF } = window.jspdf;
+  const jdoc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  const W = jdoc.internal.pageSize.getWidth(); const M = 42;
+  let y = pdfHeader(jdoc, `My Answers — ${userName}`, `Session: ${sessionId}   ·   ${new Date().toLocaleString()}`);
+  myAnswers.forEach(r => {
+    if (y > jdoc.internal.pageSize.getHeight() - 90) { jdoc.addPage(); y = 48; }
+    const qText = QUESTIONS[r.questionIndex]?.text || `Question ${r.questionIndex + 1}`;
+    jdoc.setFillColor(240, 236, 228);
+    jdoc.rect(M, y - 13, W - M * 2, 21, 'F');
+    y = pdfText(jdoc, `Q${r.questionIndex+1}: ${qText}`, M + 6, y, W - M*2-12, 10, 'bold', [26,26,46]);
+    y += 3;
+    y = pdfText(jdoc, r.text, M + 10, y, W - M*2-20, 10, 'normal', [50,50,60]);
+    y += 14;
+  });
+  jdoc.save(`my-answers-${userName.replace(/\s+/g,'-')}-${sessionId}.pdf`);
+  showToast('⬇ Your answers PDF downloaded');
+};
+
+// ════════════ STUDENT: EXPORT ALL CLASS ANSWERS ════════════
+window.exportClassAnswersPDF = () => {
+  const { jsPDF } = window.jspdf;
+  const jdoc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' });
+  const W = jdoc.internal.pageSize.getWidth(); const M = 42;
+  let y = pdfHeader(jdoc, 'All Class Responses', `Session: ${sessionId}   ·   ${new Date().toLocaleString()}`);
+  for (let qi = 0; qi < QUESTIONS.length; qi++) {
+    const responses = getResponsesForQ(qi);
+    if (responses.length === 0) continue;
+    if (y > jdoc.internal.pageSize.getHeight() - 90) { jdoc.addPage(); y = 48; }
+    jdoc.setFillColor(240, 236, 228);
+    jdoc.rect(M, y - 13, W - M * 2, 21, 'F');
+    y = pdfText(jdoc, `Q${qi+1}: ${QUESTIONS[qi].text}`, M + 6, y, W - M*2-12, 10.5, 'bold', [26,26,46]);
+    y += 4;
+    responses.forEach(r => {
+      const isMe = r.user === userName;
+      y = pdfText(jdoc, `${r.user}${isMe ? ' (me)' : ''}:`, M + 10, y, W - M*2-20, 9, 'bold', isMe ? [200,75,49] : [80,80,100]);
+      y = pdfText(jdoc, r.text, M + 22, y, W - M*2-32, 9.5, 'normal', [50,50,60]);
+      y += 2;
+    });
+    y += 10;
+  }
+  jdoc.save(`class-answers-${sessionId}.pdf`);
+  showToast('⬇ Class answers PDF downloaded');
 };
 
 // ════════════ UTILITIES ════════════
